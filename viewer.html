@@ -200,7 +200,18 @@
 
         img,
         .no-drag {
-            
+            -webkit-user-drag: none;
+            /* For Safari/Chrome */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -o-user-select: none;
+            -ms-user-select: none;
+
             -webkit-user-drag: none;
             -khtml-user-drag: none;
             -moz-user-drag: none;
@@ -309,7 +320,7 @@
     <div id="lightbox" class="lightbox">
         <div class="lightbox-close" onclick="closeLightbox()">&times;</div>
         <div class="lightbox-content">
-            <img id="lightbox-image" src="" alt="Enlarged image">
+            <img id="lightbox-image" src="" alt="Enlarged image" draggable="false">
             <div id="lightbox-caption"
                 style="color: white; text-align: center; padding: 15px; max-width: 800px; margin: 0 auto;"></div>
         </div>
@@ -431,7 +442,6 @@
 
                             displayGalleries();
                             updateGroupNavigationBar();
-                            addCopyProtection();
 
                             // Add notice about fallback
                             const notice = document.createElement('div');
@@ -548,6 +558,7 @@
                     item.className = 'gallery-item';
 
                     const img = document.createElement('img');
+                    img.setAttribute('draggable', false);
                     img.alt = image.name || 'Image';
                     img.loading = 'lazy'; // Lazy load images
 
