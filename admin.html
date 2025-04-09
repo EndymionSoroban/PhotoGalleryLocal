@@ -47,6 +47,26 @@
             padding: 2px 8px;
             border-radius: 3px;
         }
+        .image-description {
+            margin-top: 5px;
+            width: 100%;
+            resize: vertical;
+            min-height: 40px;
+            padding: 5px;
+            font-size: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .drop-indicator {
+            height: 4px;
+            background-color: #4CAF50;
+            margin: 0;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .drop-indicator.active {
+            opacity: 1;
+        }
         button {
             padding: 8px 12px;
             cursor: pointer;
@@ -579,6 +599,48 @@
                 groupHeader.appendChild(groupTitle);
                 groupHeader.appendChild(groupActions);
                 
+                // Add group-specific upload area
+                const groupUploadArea = document.createElement('div');
+                groupUploadArea.className = 'upload-container';
+                groupUploadArea.style.marginTop = '10px';
+                groupUploadArea.style.marginBottom = '15px';
+                groupUploadArea.style.padding = '10px';
+                
+                const uploadText = document.createElement('p');
+                uploadText.innerHTML = `<strong>Upload to ${group.name}:</strong> Drop images here or`;
+                
+                const uploadInput = document.createElement('input');
+                uploadInput.type = 'file';
+                uploadInput.accept = 'image/*';
+                uploadInput.multiple = true;
+                uploadInput.id = `file-upload-${group.id}`;
+                uploadInput.style.display = 'inline-block';
+                uploadInput.style.marginLeft = '5px';
+                
+                // Event listener for file selection
+                uploadInput.addEventListener('change', function(e) {
+                    handleImageUpload(e.target.files, group.id);
+                });
+                
+                // Drag and drop for this specific group
+                groupUploadArea.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    this.style.backgroundColor = '#f0f0f0';
+                });
+                
+                groupUploadArea.addEventListener('dragleave', function() {
+                    this.style.backgroundColor = '';
+                });
+                
+                groupUploadArea.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    this.style.backgroundColor = '';
+                    handleImageUpload(e.dataTransfer.files, group.id);
+                });
+                
+                uploadText.appendChild(uploadInput);
+                groupUploadArea.appendChild(uploadText);
+                
                 // Create image grid for this group
                 const groupGrid = document.createElement('div');
                 groupGrid.className = 'image-grid';
@@ -667,15 +729,40 @@
                     
                     actions.appendChild(buttonContainer);
                     
+                    // Add description textarea
+                    const descriptionArea = document.createElement('textarea');
+                    descriptionArea.className = 'image-description';
+                    descriptionArea.placeholder = 'Add image description...';
+                    descriptionArea.value = image.description || '';
+                    descriptionArea.addEventListener('change', function() {
+                        image.description = this.value;
+                        showMessage('Description updated. Remember to save your changes.', 'success');
+                    });
+                    
                     container.appendChild(img);
                     container.appendChild(document.createElement('br'));
+                    container.appendChild(descriptionArea);
                     container.appendChild(groupSelect);
                     container.appendChild(actions);
-                    groupGrid.appendChild(container);
+                    
+                    // Add drop indicators for precise positioning
+                    const topDropIndicator = document.createElement('div');
+                    topDropIndicator.className = 'drop-indicator';
+                    topDropIndicator.dataset.position = 'before';
+                    topDropIndicator.dataset.imageId = image.id;
+                    
+                    // Insert container with indicators
+                    const wrapperDiv = document.createElement('div');
+                    wrapperDiv.style.position = 'relative';
+                    wrapperDiv.appendChild(topDropIndicator);
+                    wrapperDiv.appendChild(container);
+                    
+                    groupGrid.appendChild(wrapperDiv);
                 });
                 
                 // Add group header and grid to main container
                 container.appendChild(groupHeader);
+                container.appendChild(groupUploadArea);
                 container.appendChild(groupGrid);
             });
             
@@ -686,6 +773,12 @@
         function setupDragAndDrop() {
             const containers = document.querySelectorAll('.image-container');
             const imageGrids = document.querySelectorAll('.image-grid');
+            const dropIndicators = document.querySelectorAll('.drop-indicator');
+            
+            // Hide all drop indicators initially
+            dropIndicators.forEach(indicator => {
+                indicator.classList.remove('active');
+            });
             
             containers.forEach(container => {
                 container.addEventListener('dragstart', function(e) {
@@ -695,10 +788,39 @@
                 
                 container.addEventListener('dragend', function() {
                     container.classList.remove('dragging');
+                    // Hide all drop indicators when drag ends
+                    dropIndicators.forEach(indicator => {
+                        indicator.classList.remove('active');
+                    });
                 });
                 
                 container.addEventListener('dragover', function(e) {
                     e.preventDefault();
+                    
+                    // Determine if we're in the top or bottom half of the container
+                    const rect = container.getBoundingClientRect();
+                    const y = e.clientY;
+                    const relativeY = y - rect.top;
+                    const isInTopHalf = relativeY < rect.height / 2;
+                    
+                    // Find the corresponding drop indicators
+                    const parentElement = container.parentElement;
+                    const topIndicator = parentElement.querySelector('.drop-indicator[data-position="before"]');
+                    
+                    // Hide all indicators first
+                    dropIndicators.forEach(ind => ind.classList.remove('active'));
+                    
+                    // Show the appropriate indicator
+                    if (isInTopHalf && topIndicator) {
+                        topIndicator.classList.add('active');
+                    }
+                });
+                
+                container.addEventListener('dragleave', function() {
+                    // When leaving a container, hide its indicators
+                    const parentElement = container.parentElement;
+                    const indicators = parentElement.querySelectorAll('.drop-indicator');
+                    indicators.forEach(ind => ind.classList.remove('active'));
                 });
                 
                 container.addEventListener('drop', function(e) {
@@ -707,7 +829,19 @@
                     const targetId = container.getAttribute('data-id');
                     const targetGroupId = container.closest('.image-grid').getAttribute('data-group-id');
                     
-                    moveImage(draggedId, targetId, targetGroupId);
+                    // Determine drop position (before or after)
+                    const rect = container.getBoundingClientRect();
+                    const y = e.clientY;
+                    const relativeY = y - rect.top;
+                    const dropPosition = relativeY < rect.height / 2 ? 'before' : 'after';
+                    
+                    // Move image with position information
+                    moveImage(draggedId, targetId, targetGroupId, dropPosition);
+                    
+                    // Hide all drop indicators
+                    dropIndicators.forEach(indicator => {
+                        indicator.classList.remove('active');
+                    });
                 });
             });
             
@@ -726,13 +860,43 @@
                         
                         // Move to end of the group
                         moveImage(draggedId, null, targetGroupId);
+                        
+                        // Hide all drop indicators
+                        dropIndicators.forEach(indicator => {
+                            indicator.classList.remove('active');
+                        });
                     }
+                });
+            });
+            
+            // Setup event listeners for drop indicators
+            dropIndicators.forEach(indicator => {
+                indicator.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    this.classList.add('active');
+                });
+                
+                indicator.addEventListener('dragleave', function() {
+                    this.classList.remove('active');
+                });
+                
+                indicator.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    const draggedId = e.dataTransfer.getData('text/plain');
+                    const targetId = this.dataset.imageId;
+                    const targetGroupId = this.closest('.image-grid').getAttribute('data-group-id');
+                    const position = this.dataset.position;
+                    
+                    moveImage(draggedId, targetId, targetGroupId, position);
+                    
+                    // Hide all drop indicators
+                    dropIndicators.forEach(ind => ind.classList.remove('active'));
                 });
             });
         }
         
         // Move and reorder images
-        function moveImage(draggedId, targetId, targetGroupId) {
+        function moveImage(draggedId, targetId, targetGroupId, position = 'after') {
             const draggedIndex = imageData.findIndex(img => img.id === draggedId);
             
             if (draggedIndex === -1) return;
@@ -744,15 +908,21 @@
             imageData.splice(draggedIndex, 1);
             
             if (targetId) {
-                // Moving to a specific position
+                // Moving to a specific position relative to a target
                 const targetIndex = imageData.findIndex(img => img.id === targetId);
                 
                 if (targetIndex !== -1) {
                     // Update group ID if changed
                     draggedItem.groupId = targetGroupId;
                     
-                    // Insert at new position
-                    imageData.splice(targetIndex, 0, draggedItem);
+                    // Insert at position based on before/after
+                    if (position === 'before') {
+                        // Insert before the target
+                        imageData.splice(targetIndex, 0, draggedItem);
+                    } else {
+                        // Insert after the target
+                        imageData.splice(targetIndex + 1, 0, draggedItem);
+                    }
                 }
             } else {
                 // Moving to the end of a group
@@ -770,14 +940,48 @@
                 }
             }
             
+            // Update the order property for all images in the affected groups
+            updateImageOrders();
+            
             // Re-render the groups
             renderGroups();
             
-            // Show message if group was changed
+            // Show appropriate message
             if (originalGroupId !== targetGroupId) {
                 const targetGroup = groupData.find(g => g.id === targetGroupId);
                 showMessage(`Image moved to group: ${targetGroup.name}`, 'success');
+            } else if (position === 'before' || position === 'after') {
+                showMessage('Image reordered successfully', 'success');
             }
+        }
+        
+        // Update the order property for all images
+        function updateImageOrders() {
+            // Group images by groupId
+            const groupedImages = {};
+            
+            // Initialize with empty arrays for each group
+            groupData.forEach(group => {
+                groupedImages[group.id] = [];
+            });
+            
+            // Group images by their groupId
+            imageData.forEach(image => {
+                if (groupedImages[image.groupId]) {
+                    groupedImages[image.groupId].push(image);
+                } else {
+                    // Fallback in case of orphaned images
+                    groupedImages['default'] = groupedImages['default'] || [];
+                    groupedImages['default'].push(image);
+                }
+            });
+            
+            // Update order within each group
+            Object.keys(groupedImages).forEach(groupId => {
+                groupedImages[groupId].forEach((image, index) => {
+                    image.order = index;
+                });
+            });
         }
         
         // Add a new group
@@ -854,11 +1058,20 @@
         }
         
         // Handle image upload
-        function handleImageUpload(files) {
+        function handleImageUpload(files, targetGroupId = 'default') {
             if (!files || files.length === 0) return;
             
-            Array.from(files).forEach(file => {
-                const uniqueId = 'img_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+            // Show upload progress message
+            showMessage(`Uploading ${files.length} image(s) to ${groupData.find(g => g.id === targetGroupId).name}...`, 'success');
+            
+            // Create a batch of new images
+            const newImages = [];
+            const fileArray = Array.from(files);
+            let loadedCount = 0;
+            
+            // Process each file to get data URLs
+            fileArray.forEach(file => {
+                const uniqueId = 'img_' + Date.now() + '_' + Math.floor(Math.random() * 1000) + '_' + loadedCount;
                 const fileName = file.name;
                 
                 // Store the file object in a map for later download
@@ -867,7 +1080,7 @@
                 }
                 window.uploadedFiles.set(uniqueId, file);
                 
-                // Create a data URL for display
+                // Create a reader for each file
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     // Create new image object with data URL for preview
@@ -877,16 +1090,37 @@
                         path: 'images/' + fileName,
                         originalName: fileName,
                         dateAdded: new Date().toISOString(),
-                        order: getNextOrderForGroup('default'),
-                        groupId: 'default', // Assign to default group initially
+                        order: getNextOrderForGroup(targetGroupId) + loadedCount, // Use the target group
+                        groupId: targetGroupId, // Assign to specified group
                         size: file.size,
+                        description: '', // Initialize empty description
                         dataUrl: e.target.result // Store data URL for demo purposes
                     };
                     
-                    imageData.push(newImage);
-                    renderGroups();
-                    updateGroupNavigationBar();
+                    newImages.push(newImage);
+                    loadedCount++;
+                    
+                    // When all images are loaded, add them all at once
+                    if (loadedCount === fileArray.length) {
+                        // Add all images to the imageData array at once
+                        imageData = imageData.concat(newImages);
+                        
+                        // Render once after all images are added
+                        renderGroups();
+                        updateGroupNavigationBar();
+                        
+                        // Scroll to the group where images were added, but only once
+                        const targetGroupElement = document.getElementById(`group-${targetGroupId}`);
+                        if (targetGroupElement) {
+                            // Use scrollIntoView with behavior: 'auto' to prevent animation
+                            targetGroupElement.scrollIntoView({ behavior: 'auto' });
+                        }
+                        
+                        showMessage(`Successfully added ${newImages.length} images to group: ${groupData.find(g => g.id === targetGroupId).name}`, 'success');
+                    }
                 };
+                
+                // Start reading the file
                 reader.readAsDataURL(file);
             });
         }

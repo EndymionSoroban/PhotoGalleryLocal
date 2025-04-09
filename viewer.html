@@ -158,6 +158,107 @@
             cursor: pointer;
         }
     </style>
+    <style>
+        /* Disable selection and highlighting */
+        body {
+            -webkit-touch-callout: none;  /* iOS Safari */
+        }
+        
+        .no-copy {
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -o-user-select: none;
+            user-select: none;
+        }
+        
+        /* Watermark overlay option */
+        .watermarked::before {
+            content: "© Your Gallery";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 2em;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 15;
+            white-space: nowrap;
+        }
+        
+        /* CSS to break browsers' save image feature */
+        .protect-image {
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: cover;
+        }
+        
+        .protect-image img {
+            opacity: 0.01;  /* Nearly invisible */
+        }
+        
+        /* Mosaic overlay option - visible only when downloading */
+        @media print {
+            .gallery-item img, .lightbox-content img {
+                visibility: hidden;
+            }
+            
+            .gallery-item::after, .lightbox-content::after {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-image: repeating-linear-gradient(45deg, 
+                    rgba(0, 0, 0, 0.1), 
+                    rgba(0, 0, 0, 0.1) 10px, 
+                    rgba(0, 0, 0, 0.3) 10px, 
+                    rgba(0, 0, 0, 0.3) 20px);
+                visibility: visible;
+                z-index: 999;
+            }
+        }
+    </style>
+    
+    <!-- JavaScript to prevent image dragging and copying -->
+    <script>
+        // Place this in your document ready function or at the end of the body
+        function addCopyProtection() {
+            // Prevent dragging of images
+            document.querySelectorAll('img').forEach(function(img) {
+                img.setAttribute('draggable', 'false');
+                
+                // Alternative: Replace img with div background
+                /*
+                const parent = img.parentNode;
+                const div = document.createElement('div');
+                div.className = 'protect-image';
+                div.style.width = img.width + 'px';
+                div.style.height = img.height + 'px';
+                div.style.backgroundImage = 'url(' + img.src + ')';
+                parent.replaceChild(div, img);
+                */
+            });
+            
+            // Monitor clipboard operations
+            document.addEventListener('copy', function(e) {
+                // Only block if trying to copy an image
+                if (window.getSelection) {
+                    const selection = window.getSelection();
+                    if (selection.rangeCount > 0) {
+                        const range = selection.getRangeAt(0);
+                        const container = range.commonAncestorContainer;
+                        if (container.nodeName === 'IMG' || 
+                            (container.parentNode && container.parentNode.nodeName === 'IMG')) {
+                            e.preventDefault();
+                        }
+                    }
+                }
+            });
+        }
+    </script>
 </head>
 <body>
     <div class="header">
@@ -185,6 +286,7 @@
         <div class="lightbox-close" onclick="closeLightbox()">&times;</div>
         <div class="lightbox-content">
             <img id="lightbox-image" src="" alt="Enlarged image">
+            <div id="lightbox-caption" style="color: white; text-align: center; padding: 15px; max-width: 800px; margin: 0 auto;"></div>
         </div>
         <div class="lightbox-controls">
             <button onclick="prevImage()">&laquo; Previous</button>
@@ -203,6 +305,24 @@
         // On page load
         document.addEventListener('DOMContentLoaded', function() {
             loadImages();
+            
+            // Disable right-click context menu
+            document.addEventListener('contextmenu', function(e) {
+                if (e.target.tagName === 'IMG' || e.target.className === 'image-protector') {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+            
+            // Disable keyboard shortcuts that could be used to save images
+            document.addEventListener('keydown', function(e) {
+                // Prevent Ctrl+S, Ctrl+U, F12, etc.
+                if ((e.ctrlKey && (e.key === 's' || e.key === 'S' || e.key === 'u' || e.key === 'U')) || 
+                    e.key === 'F12' || e.key === 'PrintScreen') {
+                    e.preventDefault();
+                    return false;
+                }
+            });
             
             // Toggle navigation visibility
             document.getElementById('toggle-nav').addEventListener('click', function() {
@@ -468,6 +588,20 @@
                 }
             };
             
+            
+            // Update the caption if description exists
+            const lightboxCaption = document.getElementById('lightbox-caption');
+            if (lightboxCaption) {
+                const image = allImages[index];
+                let captionText = image.name || image.path.split('/').pop() || 'Image';
+                
+                if (image.description && image.description.trim() !== '') {
+                    captionText += `<br><span class="description">${image.description}</span>`;
+                }
+                
+                lightboxCaption.innerHTML = captionText;
+            }
+            
             lightbox.classList.add('active');
             
             // Disable scrolling on body
@@ -503,6 +637,19 @@
                     lightboxImage.style.padding = '40px';
                 }
             };
+            
+            // Update caption
+            const lightboxCaption = document.getElementById('lightbox-caption');
+            if (lightboxCaption) {
+                const image = allImages[currentImageIndex];
+                let captionText = image.name || image.path.split('/').pop() || 'Image';
+                
+                if (image.description && image.description.trim() !== '') {
+                    captionText += `<br><span class="description">${image.description}</span>`;
+                }
+                
+                lightboxCaption.innerHTML = captionText;
+            }
         }
         
         function prevImage() {
@@ -526,6 +673,19 @@
                     lightboxImage.style.padding = '40px';
                 }
             };
+            
+            // Update caption
+            const lightboxCaption = document.getElementById('lightbox-caption');
+            if (lightboxCaption) {
+                const image = allImages[currentImageIndex];
+                let captionText = image.name || image.path.split('/').pop() || 'Image';
+                
+                if (image.description && image.description.trim() !== '') {
+                    captionText += `<br><span class="description">${image.description}</span>`;
+                }
+                
+                lightboxCaption.innerHTML = captionText;
+            }
         }
         
         // Keyboard navigation for lightbox
