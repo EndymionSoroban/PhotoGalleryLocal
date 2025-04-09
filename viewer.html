@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Gallery - User View</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .gallery {
+            margin-bottom: 40px;
+        }
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .gallery-item {
+            border-radius: 5px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        .gallery-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .gallery-item img {
+            width: 100%;
+            height: 220px;
+            object-fit: cover;
+            display: block;
+        }
+        .gallery-item .caption {
+            padding: 10px;
+            background-color: #f8f8f8;
+        }
+        .lightbox {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .lightbox.active {
+            display: flex;
+        }
+        .lightbox-content {
+            max-width: 90%;
+            max-height: 90%;
+        }
+        .lightbox-content img {
+            max-width: 100%;
+            max-height: 90vh;
+            object-fit: contain;
+        }
+        .lightbox-controls {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .lightbox-controls button {
+            background-color: rgba(255,255,255,0.3);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .lightbox-controls button:hover {
+            background-color: rgba(255,255,255,0.5);
+        }
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-size: 30px;
+            cursor: pointer;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 18px;
+            color: #666;
+        }
+        .group-header {
+            margin: 30px 0 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #eee;
+        }
+        .group-header h2 {
+            margin: 0;
+            color: #333;
+        }
+        .group-navigation {
+            position: fixed;
+            right: 20px;
+            top: 100px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            max-height: 70vh;
+            overflow-y: auto;
+            width: 200px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+        .group-nav-item {
+            padding: 8px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+        .group-nav-item:hover {
+            background-color: #f5f5f5;
+        }
+        .group-nav-search {
+            position: sticky;
+            top: 0;
+            background: white;
+            padding: 5px 0;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 10px;
+        }
+        .group-nav-search input {
+            width: 100%;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+        .toggle-nav-btn {
+            position: fixed;
+            right: 20px;
+            top: 60px;
+            z-index: 101;
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Image Gallery</h1>
+        <div>
+            <a href="admin.html" style="color: #2196F3; text-decoration: none; display: inline-block; margin-right: 20px;">Go to Admin Panel</a>
+            <p style="display: inline-block; color: #666; margin: 0;">Images loaded from image-data.json</p>
+        </div>
+    </div>
+    
+    <button id="toggle-nav" class="toggle-nav-btn">Toggle Group Navigation</button>
+    
+    <div id="group-navigation" class="group-navigation">
+        <div class="group-nav-search">
+            <input type="text" id="group-search" placeholder="Search groups...">
+        </div>
+        <div id="group-nav-items"></div>
+    </div>
+    
+    <div id="galleries-container">
+        <div class="loading">Loading images...</div>
+    </div>
+    
+    <div id="lightbox" class="lightbox">
+        <div class="lightbox-close" onclick="closeLightbox()">&times;</div>
+        <div class="lightbox-content">
+            <img id="lightbox-image" src="" alt="Enlarged image">
+        </div>
+        <div class="lightbox-controls">
+            <button onclick="prevImage()">&laquo; Previous</button>
+            <button onclick="nextImage()">Next &raquo;</button>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let imageData = [];
+        let groupData = [];
+        let allImages = []; // Flattened array of all images for lightbox
+        let currentImageIndex = 0;
+        const metadataFile = 'image-data.json'; // Same JSON file used by the admin interface
+        
+        // On page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadImages();
+            
+            // Toggle navigation visibility
+            document.getElementById('toggle-nav').addEventListener('click', function() {
+                const nav = document.getElementById('group-navigation');
+                nav.style.display = nav.style.display === 'none' ? 'block' : 'none';
+            });
+            
+            // Group search functionality
+            document.getElementById('group-search').addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                const items = document.querySelectorAll('.group-nav-item');
+                
+                items.forEach(item => {
+                    const groupName = item.textContent.toLowerCase();
+                    if (groupName.includes(searchTerm)) {
+                        item.style.display = 'block';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            });
+        });
+        
+        // Load image data from JSON file
+        function loadImages() {
+            // Attempt to load data from the JSON file
+            fetch('image-data.json')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('No images found or JSON file not accessible');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data && data.images && Array.isArray(data.images)) {
+                        // New format with groups
+                        imageData = data.images;
+                        groupData = data.groups;
+                    } else if (data && Array.isArray(data)) {
+                        // Old format - just array of images
+                        imageData = data;
+                        // Create a default group
+                        groupData = [{ id: 'default', name: 'Gallery', order: 0 }];
+                        // Assign all images to default group
+                        imageData.forEach(image => {
+                            image.groupId = 'default';
+                        });
+                    } else {
+                        throw new Error('Invalid JSON data format');
+                    }
+                    
+                    displayGalleries();
+                    updateGroupNavigationBar();
+                })
+                .catch(error => {
+                    console.error('Failed to load images from JSON:', error);
+                    
+                    // Fallback to localStorage only if JSON fetch fails
+                    const localData = localStorage.getItem(metadataFile);
+                    if (localData) {
+                        try {
+                            const parsedData = JSON.parse(localData);
+                            
+                            if (parsedData && parsedData.images && Array.isArray(parsedData.images)) {
+                                // New format with groups
+                                imageData = parsedData.images;
+                                groupData = parsedData.groups;
+                            } else if (parsedData && Array.isArray(parsedData)) {
+                                // Old format - just array of images
+                                imageData = parsedData;
+                                // Create a default group
+                                groupData = [{ id: 'default', name: 'Gallery', order: 0 }];
+                                // Assign all images to default group
+                                imageData.forEach(image => {
+                                    image.groupId = 'default';
+                                });
+                            } else {
+                                throw new Error('Invalid localStorage data format');
+                            }
+                            
+                            displayGalleries();
+                            updateGroupNavigationBar();
+                            
+                            // Add notice about fallback
+                            const notice = document.createElement('div');
+                            notice.style.margin = '20px auto';
+                            notice.style.padding = '15px';
+                            notice.style.backgroundColor = '#fff3cd';
+                            notice.style.border = '1px solid #ffeeba';
+                            notice.style.borderRadius = '4px';
+                            notice.style.maxWidth = '800px';
+                            
+                            notice.innerHTML = `
+                                <p><strong>Note:</strong> Unable to load the image-data.json file. 
+                                Using localStorage data as a fallback.</p>
+                                <p>For production use, make sure the JSON file is accessible and 
+                                contains the correct image references.</p>
+                            `;
+                            
+                            document.body.insertBefore(notice, document.getElementById('galleries-container'));
+                        } catch (error) {
+                            console.error('Error parsing local data:', error);
+                            document.getElementById('galleries-container').innerHTML = 
+                                '<p>Error loading images. Please check that image-data.json exists and is valid.</p>';
+                        }
+                    } else {
+                        document.getElementById('galleries-container').innerHTML = 
+                            '<p>No images found. Please make sure image-data.json exists in the same directory.</p>';
+                    }
+                });
+        }
+        
+        // Update the group navigation bar
+        function updateGroupNavigationBar() {
+            const navContainer = document.getElementById('group-nav-items');
+            navContainer.innerHTML = '';
+            
+            // Filter out groups with no images
+            const groupsWithImages = groupData.filter(group => 
+                imageData.some(image => image.groupId === group.id)
+            );
+            
+            // Sort groups by order
+            const sortedGroups = [...groupsWithImages].sort((a, b) => a.order - b.order);
+            
+            sortedGroups.forEach(group => {
+                const groupItem = document.createElement('div');
+                groupItem.className = 'group-nav-item';
+                groupItem.textContent = group.name;
+                groupItem.setAttribute('data-group-id', group.id);
+                
+                groupItem.addEventListener('click', function() {
+                    const targetGroup = document.getElementById(`group-${group.id}`);
+                    if (targetGroup) {
+                        targetGroup.scrollIntoView({ behavior: 'smooth' });
+                    }
+                });
+                
+                navContainer.appendChild(groupItem);
+            });
+        }
+        
+        // Display galleries for each group
+        function displayGalleries() {
+            const container = document.getElementById('galleries-container');
+            container.innerHTML = '';
+            allImages = []; // Reset all images array
+            
+            if (!imageData || imageData.length === 0) {
+                container.innerHTML = '<p>No images available</p>';
+                return;
+            }
+            
+            // Sort groups by order
+            const sortedGroups = [...groupData].sort((a, b) => a.order - b.order);
+            
+            // Create gallery for each group
+            sortedGroups.forEach(group => {
+                // Filter images for this group
+                const groupImages = imageData.filter(image => image.groupId === group.id);
+                
+                // Skip empty groups
+                if (groupImages.length === 0) return;
+                
+                // Sort by order if available, otherwise by date
+                groupImages.sort((a, b) => {
+                    if (a.order !== undefined && b.order !== undefined) {
+                        return a.order - b.order;
+                    }
+                    return new Date(b.dateAdded) - new Date(a.dateAdded);
+                });
+                
+                // Add images to the flattened array for lightbox navigation
+                allImages = allImages.concat(groupImages);
+                
+                // Create group gallery container
+                const galleryContainer = document.createElement('div');
+                galleryContainer.className = 'gallery';
+                galleryContainer.id = `group-${group.id}`;
+                
+                // Add group header
+                const groupHeader = document.createElement('div');
+                groupHeader.className = 'group-header';
+                
+                const groupTitle = document.createElement('h2');
+                groupTitle.textContent = group.name;
+                groupHeader.appendChild(groupTitle);
+                
+                // Create gallery grid
+                const galleryGrid = document.createElement('div');
+                galleryGrid.className = 'gallery-grid';
+                
+                // Create gallery items
+                groupImages.forEach((image) => {
+                    const item = document.createElement('div');
+                    item.className = 'gallery-item';
+                    
+                    const img = document.createElement('img');
+                    img.alt = image.name || 'Image';
+                    img.loading = 'lazy'; // Lazy load images
+                    
+                    // Try to load the image from the path in the JSON
+                    img.src = image.path;
+                    
+                    // Set error handler for when image fails to load
+                    img.onerror = function() {
+                        // Try fallback to dataUrl if available (from localStorage fallback)
+                        if (image.dataUrl) {
+                            img.src = image.dataUrl;
+                        } else {
+                            // Show placeholder if no image is available
+                            img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24"><rect fill="%23f8f9fa" width="24" height="24"/><text fill="%23343a40" font-family="Arial" font-size="3" x="12" y="12" text-anchor="middle">Image not found</text></svg>';
+                            img.style.backgroundColor = '#eee';
+                            img.style.padding = '20px';
+                        }
+                    };
+                    
+                    // When clicked, find the index in the flattened array to open correctly in lightbox
+                    img.addEventListener('click', () => {
+                        const globalIndex = allImages.findIndex(i => i.id === image.id);
+                        if (globalIndex !== -1) {
+                            openLightbox(globalIndex);
+                        }
+                    });
+                    
+                    const caption = document.createElement('div');
+                    caption.className = 'caption';
+                    
+                    // Fallback to path if name is not available
+                    const imageName = image.name || image.path.split('/').pop() || 'Image';
+                    caption.textContent = imageName;
+                    
+                    item.appendChild(img);
+                    item.appendChild(caption);
+                    galleryGrid.appendChild(item);
+                });
+                
+                galleryContainer.appendChild(groupHeader);
+                galleryContainer.appendChild(galleryGrid);
+                container.appendChild(galleryContainer);
+            });
+        }
+        
+        // Lightbox functionality
+        function openLightbox(index) {
+            currentImageIndex = index;
+            const lightbox = document.getElementById('lightbox');
+            const lightboxImage = document.getElementById('lightbox-image');
+            
+            // Try to load the image from the path in the JSON
+            lightboxImage.src = allImages[index].path;
+            
+            // Set error handler for when image fails to load
+            lightboxImage.onerror = function() {
+                // Try fallback to dataUrl if available (from localStorage fallback)
+                if (allImages[index].dataUrl) {
+                    lightboxImage.src = allImages[index].dataUrl;
+                } else {
+                    // Show placeholder if no image is available
+                    lightboxImage.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24"><rect fill="%23f8f9fa" width="24" height="24"/><text fill="%23343a40" font-family="Arial" font-size="3" x="12" y="12" text-anchor="middle">Image not found</text></svg>';
+                    lightboxImage.style.backgroundColor = '#333';
+                    lightboxImage.style.padding = '40px';
+                }
+            };
+            
+            lightbox.classList.add('active');
+            
+            // Disable scrolling on body
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeLightbox() {
+            const lightbox = document.getElementById('lightbox');
+            lightbox.classList.remove('active');
+            
+            // Re-enable scrolling
+            document.body.style.overflow = '';
+        }
+        
+        function nextImage() {
+            currentImageIndex = (currentImageIndex + 1) % allImages.length;
+            const lightboxImage = document.getElementById('lightbox-image');
+            
+            // Try to load the image from the path in the JSON
+            lightboxImage.src = allImages[currentImageIndex].path;
+            lightboxImage.style.backgroundColor = '';
+            lightboxImage.style.padding = '';
+            
+            // Set error handler for when image fails to load
+            lightboxImage.onerror = function() {
+                // Try fallback to dataUrl if available (from localStorage fallback)
+                if (allImages[currentImageIndex].dataUrl) {
+                    lightboxImage.src = allImages[currentImageIndex].dataUrl;
+                } else {
+                    // Show placeholder if no image is available
+                    lightboxImage.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24"><rect fill="%23f8f9fa" width="24" height="24"/><text fill="%23343a40" font-family="Arial" font-size="3" x="12" y="12" text-anchor="middle">Image not found</text></svg>';
+                    lightboxImage.style.backgroundColor = '#333';
+                    lightboxImage.style.padding = '40px';
+                }
+            };
+        }
+        
+        function prevImage() {
+            currentImageIndex = (currentImageIndex - 1 + allImages.length) % allImages.length;
+            const lightboxImage = document.getElementById('lightbox-image');
+            
+            // Try to load the image from the path in the JSON
+            lightboxImage.src = allImages[currentImageIndex].path;
+            lightboxImage.style.backgroundColor = '';
+            lightboxImage.style.padding = '';
+            
+            // Set error handler for when image fails to load
+            lightboxImage.onerror = function() {
+                // Try fallback to dataUrl if available (from localStorage fallback)
+                if (allImages[currentImageIndex].dataUrl) {
+                    lightboxImage.src = allImages[currentImageIndex].dataUrl;
+                } else {
+                    // Show placeholder if no image is available
+                    lightboxImage.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24"><rect fill="%23f8f9fa" width="24" height="24"/><text fill="%23343a40" font-family="Arial" font-size="3" x="12" y="12" text-anchor="middle">Image not found</text></svg>';
+                    lightboxImage.style.backgroundColor = '#333';
+                    lightboxImage.style.padding = '40px';
+                }
+            };
+        }
+        
+        // Keyboard navigation for lightbox
+        document.addEventListener('keydown', function(e) {
+            if (!document.getElementById('lightbox').classList.contains('active')) return;
+            
+            if (e.key === 'Escape') {
+                closeLightbox();
+            } else if (e.key === 'ArrowRight') {
+                nextImage();
+            } else if (e.key === 'ArrowLeft') {
+                prevImage();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Manager - Admin</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .image-container {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            position: relative;
+        }
+        .image-container img {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            display: block;
+            border-radius: 4px;
+        }
+        .image-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+        }
+        .drag-handle {
+            cursor: move;
+            background: #f0f0f0;
+            padding: 2px 8px;
+            border-radius: 3px;
+        }
+        button {
+            padding: 8px 12px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button.delete {
+            background-color: #f44336;
+        }
+        .upload-container {
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px dashed #ccc;
+            text-align: center;
+        }
+        .dragging {
+            opacity: 0.5;
+        }
+        .status-message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+        .group-header {
+            background-color: #f8f9fa;
+            padding: 10px;
+            margin: 15px 0 5px 0;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 5px solid #4CAF50;
+        }
+        .group-header h3 {
+            margin: 0;
+        }
+        .group-actions button {
+            margin-left: 5px;
+        }
+        .scrollable-nav {
+            position: fixed;
+            right: 20px;
+            top: 100px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            max-height: 70vh;
+            overflow-y: auto;
+            width: 200px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+        .group-nav-item {
+            padding: 5px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+        .group-nav-item:hover {
+            background-color: #f5f5f5;
+        }
+        .group-nav-search {
+            position: sticky;
+            top: 0;
+            background: white;
+            padding: 5px 0;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 10px;
+        }
+        .group-nav-search input {
+            width: 100%;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+        .add-group-form {
+            margin: 15px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .add-group-form input {
+            padding: 8px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .image-group-select {
+            margin-top: 5px;
+            width: 100%;
+            padding: 5px;
+        }
+        .toggle-nav-btn {
+            position: fixed;
+            right: 20px;
+            top: 60px;
+            z-index: 101;
+            background: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Image Manager - Admin</h1>
+        <div>
+            <button id="save-order">Save Changes</button>
+            <button id="view-gallery" style="background-color: #2196F3; margin-left: 10px;">Open Gallery View</button>
+            <span style="margin-left: 15px; color: #666;">Save to download image-data.json file</span>
+        </div>
+    </div>
+    
+    <button id="toggle-nav" class="toggle-nav-btn">Toggle Group Navigation</button>
+    
+    <div id="group-navigation" class="scrollable-nav">
+        <div class="group-nav-search">
+            <input type="text" id="group-search" placeholder="Search groups...">
+        </div>
+        <div id="group-nav-items"></div>
+    </div>
+    
+    <div class="upload-container">
+        <h3>Upload New Images</h3>
+        <input type="file" id="file-upload" accept="image/*" multiple>
+        <p>Or drag and drop images here</p>
+    </div>
+    
+    <div class="add-group-form">
+        <h3>Add New Group</h3>
+        <input type="text" id="new-group-name" placeholder="Group name">
+        <button id="add-group-btn">Add Group</button>
+    </div>
+    
+    <h2>Manage Images</h2>
+    <p>Drag images to reorder them or move between groups. Changes are not saved until you click "Save Changes".</p>
+    
+    <div id="image-groups-container"></div>
+    
+    <div id="status-message"></div>
+
+    <script>
+        // Global variables
+        let imageData = [];
+        let groupData = [];
+        const storagePath = 'images/'; // Folder where images will be stored
+        const metadataFile = 'image-data.json'; // JSON file name
+        
+        // On page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadImageData();
+            setupEventListeners();
+            
+            // Toggle navigation visibility
+            document.getElementById('toggle-nav').addEventListener('click', function() {
+                const nav = document.getElementById('group-navigation');
+                nav.style.display = nav.style.display === 'none' ? 'block' : 'none';
+            });
+            
+            // Group search functionality
+            document.getElementById('group-search').addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                const items = document.querySelectorAll('.group-nav-item');
+                
+                items.forEach(item => {
+                    const groupName = item.textContent.toLowerCase();
+                    if (groupName.includes(searchTerm)) {
+                        item.style.display = 'block';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            });
+        });
+        
+        // Load image data from JSON file with localStorage fallback
+        function loadImageData() {
+            // First try to load from the JSON file
+            fetch(metadataFile)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Could not load JSON file');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Loaded data from JSON file:', data);
+                    
+                    if (data && data.images && Array.isArray(data.images)) {
+                        imageData = data.images;
+                        
+                        // Set up groups data
+                        if (data.groups && Array.isArray(data.groups)) {
+                            groupData = data.groups;
+                        } else {
+                            // Create a default group if none exists
+                            groupData = [{ id: 'default', name: 'Default Group', order: 0 }];
+                            
+                            // Assign all images to default group if no group is assigned
+                            imageData.forEach(image => {
+                                if (!image.groupId) {
+                                    image.groupId = 'default';
+                                }
+                            });
+                        }
+                        
+                        // We need to convert file paths to displayable images
+                        // For each image, try to load it from the path
+                        const loadPromises = imageData.map(image => {
+                            return new Promise((resolve) => {
+                                // Create an image element to test if the image loads
+                                const img = new Image();
+                                img.onload = function() {
+                                    // Image loaded successfully
+                                    resolve();
+                                };
+                                img.onerror = function() {
+                                    // If image fails to load, we'll still resolve but mark it as failed
+                                    console.warn(`Failed to load image from path: ${image.path}`);
+                                    resolve();
+                                };
+                                img.src = image.path;
+                            });
+                        });
+                        
+                        // Once all images have been tested
+                        Promise.all(loadPromises).then(() => {
+                            renderGroups();
+                            updateGroupNavigationBar();
+                            showMessage('Images and groups loaded from JSON file', 'success');
+                        });
+                    } else if (data && Array.isArray(data)) {
+                        // Handle the case where data is in the old format (just array of images)
+                        imageData = data;
+                        
+                        // Create a default group
+                        groupData = [{ id: 'default', name: 'Default Group', order: 0 }];
+                        
+                        // Assign all images to default group
+                        imageData.forEach(image => {
+                            image.groupId = 'default';
+                        });
+                        
+                        const loadPromises = imageData.map(image => {
+                            return new Promise((resolve) => {
+                                const img = new Image();
+                                img.onload = function() {
+                                    resolve();
+                                };
+                                img.onerror = function() {
+                                    console.warn(`Failed to load image from path: ${image.path}`);
+                                    resolve();
+                                };
+                                img.src = image.path;
+                            });
+                        });
+                        
+                        Promise.all(loadPromises).then(() => {
+                            renderGroups();
+                            updateGroupNavigationBar();
+                            showMessage('Images loaded and default group created', 'success');
+                        });
+                    } else {
+                        throw new Error('Invalid JSON data');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading from JSON:', error);
+                    // Fallback to localStorage
+                    tryLoadFromLocalStorage();
+                });
+        }
+        
+        // Fallback function to load from localStorage
+        function tryLoadFromLocalStorage() {
+            try {
+                const savedData = localStorage.getItem(metadataFile);
+                if (savedData) {
+                    const parsedData = JSON.parse(savedData);
+                    
+                    if (parsedData && parsedData.images && Array.isArray(parsedData.images)) {
+                        imageData = parsedData.images;
+                        groupData = parsedData.groups || [{ id: 'default', name: 'Default Group', order: 0 }];
+                    } else if (parsedData && Array.isArray(parsedData)) {
+                        // Old format handling
+                        imageData = parsedData;
+                        groupData = [{ id: 'default', name: 'Default Group', order: 0 }];
+                        
+                        // Assign all images to default group
+                        imageData.forEach(image => {
+                            image.groupId = 'default';
+                        });
+                    } else {
+                        imageData = [];
+                        groupData = [{ id: 'default', name: 'Default Group', order: 0 }];
+                    }
+                    
+                    renderGroups();
+                    updateGroupNavigationBar();
+                    showMessage('Images loaded from browser storage', 'success');
+                } else {
+                    imageData = [];
+                    groupData = [{ id: 'default', name: 'Default Group', order: 0 }];
+                    renderGroups();
+                    updateGroupNavigationBar();
+                    showMessage('No saved images found. Starting with empty collection.', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to load image data from localStorage:', error);
+                imageData = [];
+                groupData = [{ id: 'default', name: 'Default Group', order: 0 }];
+                renderGroups();
+                updateGroupNavigationBar();
+                showMessage('Failed to load image data. Starting with empty collection.', 'error');
+            }
+        }
+        
+        // Save image data to JSON file
+        function saveImageData() {
+            try {
+                // Create a clean version of the data without dataUrls
+                const cleanImageData = imageData.map(img => {
+                    // Create a new object without the dataUrl or tempUrl properties
+                    const { dataUrl, tempUrl, ...cleanImg } = img;
+                    return cleanImg;
+                });
+                
+                // Create the complete data structure with groups
+                const completeData = {
+                    images: cleanImageData,
+                    groups: groupData
+                };
+                
+                // Save to localStorage as backup
+                localStorage.setItem(metadataFile, JSON.stringify(completeData));
+                
+                // Create a downloadable JSON file
+                downloadJSON(completeData);
+                
+                // Provide information for handling the images
+                if (window.uploadedFiles && window.uploadedFiles.size > 0) {
+                    downloadImagesAsZip(completeData);
+                } else {
+                    showMessage('Changes saved! Download the JSON file and place it in your app directory as "image-data.json"', 'success');
+                }
+            } catch (error) {
+                showMessage('Failed to save changes: ' + error.message, 'error');
+            }
+        }
+        
+        // Function to download the JSON file
+        function downloadJSON(data) {
+            const dataStr = JSON.stringify(data, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = metadataFile;
+            link.click();
+            
+            // Release the object URL
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+        }
+        
+        // Function to download individual images
+        function downloadImage(image) {
+            if (!image.dataUrl && !image.tempUrl) {
+                // Try to fetch the image from its path
+                fetch(image.path)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Image not available for download');
+                        }
+                        return response.blob();
+                    })
+                    .then(blob => {
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = image.originalName || image.name || 'image.jpg';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                    })
+                    .catch(error => {
+                        showMessage('No image data available for download: ' + error.message, 'error');
+                    });
+                return;
+            }
+            
+            // Create a link element to download the image
+            const link = document.createElement('a');
+            link.href = image.dataUrl || image.tempUrl;
+            link.download = image.originalName || image.name || 'image.jpg';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // Function to provide instructions for downloading images
+        function downloadImagesAsZip(jsonData) {
+            showMessage('Preparing instructions for image download...', 'success');
+            
+            const message = document.createElement('div');
+            message.innerHTML = `
+                <h3>Instructions for Using This Gallery</h3>
+                <ol>
+                    <li><strong>Save the JSON file:</strong> The image-data.json file has been downloaded to your computer.</li>
+                    <li><strong>Create folder structure:</strong>
+                        <ul>
+                            <li>Create a folder for your gallery</li>
+                            <li>Place admin.html, viewer.html, and image-data.json in this folder</li>
+                            <li>Create a subfolder named "images"</li>
+                        </ul>
+                    </li>
+                    <li><strong>Save your images:</strong>
+                        <ul>
+                            <li>Download each image using the "Download" button</li>
+                            <li>Save them to the "images" folder with their original filenames</li>
+                            <li>The image filenames must match what's in your JSON file</li>
+                        </ul>
+                    </li>
+                    <li><strong>View your gallery:</strong> Open viewer.html in a browser to see your gallery</li>
+                </ol>
+                <p><strong>Important:</strong> The gallery expects to find images at the paths specified in the JSON. For example, if the JSON contains <code>"path": "images/beach.jpg"</code>, there must be a file at that exact location.</p>
+                
+                <h4>Hosting Online</h4>
+                <p>If you're hosting this gallery on a web server:</p>
+                <ol>
+                    <li>Upload admin.html, viewer.html, and image-data.json to the same directory</li>
+                    <li>Create an "images" folder in that directory</li>
+                    <li>Upload all your images to the images folder</li>
+                </ol>
+            `;
+            
+            const dialog = document.createElement('div');
+            dialog.style.position = 'fixed';
+            dialog.style.top = '50%';
+            dialog.style.left = '50%';
+            dialog.style.transform = 'translate(-50%, -50%)';
+            dialog.style.backgroundColor = 'white';
+            dialog.style.padding = '20px';
+            dialog.style.borderRadius = '5px';
+            dialog.style.boxShadow = '0 0 10px rgba(0,0,0,0.2)';
+            dialog.style.zIndex = '1000';
+            dialog.style.maxWidth = '80%';
+            dialog.style.maxHeight = '80vh';
+            dialog.style.overflow = 'auto';
+            
+            const closeBtn = document.createElement('button');
+            closeBtn.textContent = 'Close';
+            closeBtn.style.marginTop = '10px';
+            
+            closeBtn.onclick = function() {
+                document.body.removeChild(dialog);
+                showMessage('Changes saved successfully! JSON file downloaded.', 'success');
+            };
+            
+            dialog.appendChild(message);
+            dialog.appendChild(closeBtn);
+            document.body.appendChild(dialog);
+        }
+        
+        // Update the group navigation bar
+        function updateGroupNavigationBar() {
+            const navContainer = document.getElementById('group-nav-items');
+            navContainer.innerHTML = '';
+            
+            // Sort groups by order
+            const sortedGroups = [...groupData].sort((a, b) => a.order - b.order);
+            
+            sortedGroups.forEach(group => {
+                const groupItem = document.createElement('div');
+                groupItem.className = 'group-nav-item';
+                groupItem.textContent = group.name;
+                groupItem.setAttribute('data-group-id', group.id);
+                
+                groupItem.addEventListener('click', function() {
+                    const targetGroup = document.getElementById(`group-${group.id}`);
+                    if (targetGroup) {
+                        targetGroup.scrollIntoView({ behavior: 'smooth' });
+                    }
+                });
+                
+                navContainer.appendChild(groupItem);
+            });
+        }
+        
+        // Render groups and their images
+        function renderGroups() {
+            const container = document.getElementById('image-groups-container');
+            container.innerHTML = '';
+            
+            // Sort groups by order
+            const sortedGroups = [...groupData].sort((a, b) => a.order - b.order);
+            
+            // Render each group
+            sortedGroups.forEach(group => {
+                // Create group header
+                const groupHeader = document.createElement('div');
+                groupHeader.className = 'group-header';
+                groupHeader.id = `group-${group.id}`;
+                
+                // Add group title
+                const groupTitle = document.createElement('h3');
+                groupTitle.textContent = group.name;
+                
+                // Add group actions
+                const groupActions = document.createElement('div');
+                groupActions.className = 'group-actions';
+                
+                // Add delete group button
+                if (group.id !== 'default') {
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'delete';
+                    deleteBtn.textContent = 'Delete Group';
+                    deleteBtn.onclick = () => deleteGroup(group.id);
+                    groupActions.appendChild(deleteBtn);
+                }
+                
+                groupHeader.appendChild(groupTitle);
+                groupHeader.appendChild(groupActions);
+                
+                // Create image grid for this group
+                const groupGrid = document.createElement('div');
+                groupGrid.className = 'image-grid';
+                groupGrid.setAttribute('data-group-id', group.id);
+                
+                // Filter images for this group
+                const groupImages = imageData.filter(image => image.groupId === group.id);
+                
+                // Sort by order if available, otherwise by date
+                groupImages.sort((a, b) => {
+                    if (a.order !== undefined && b.order !== undefined) {
+                        return a.order - b.order;
+                    }
+                    return new Date(b.dateAdded || Date.now()) - new Date(a.dateAdded || Date.now());
+                });
+                
+                // Update order property based on current array position
+                groupImages.forEach((image, index) => {
+                    image.order = index;
+                });
+                
+                // Create HTML elements for each image
+                groupImages.forEach((image, index) => {
+                    const container = document.createElement('div');
+                    container.className = 'image-container';
+                    container.setAttribute('data-id', image.id);
+                    container.draggable = true;
+                    
+                    const img = document.createElement('img');
+                    // Use the data URL or tempUrl for display if available, otherwise try the path
+                    img.src = image.dataUrl || image.tempUrl || image.path;
+                    img.alt = image.name || 'Image';
+                    
+                    // Add error handler for images
+                    img.onerror = function() {
+                        // If image fails to load from path, show placeholder
+                        img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24"><rect fill="%23f8f9fa" width="24" height="24"/><text fill="%23343a40" font-family="Arial" font-size="3" x="12" y="12" text-anchor="middle">Image not found</text></svg>';
+                        img.style.backgroundColor = '#eee';
+                        img.style.padding = '20px';
+                    };
+                    
+                    const actions = document.createElement('div');
+                    actions.className = 'image-actions';
+                    
+                    const handle = document.createElement('span');
+                    handle.className = 'drag-handle';
+                    handle.textContent = '☰';
+                    
+                    // Group selector
+                    const groupSelect = document.createElement('select');
+                    groupSelect.className = 'image-group-select';
+                    
+                    // Add options for each group
+                    groupData.forEach(g => {
+                        const option = document.createElement('option');
+                        option.value = g.id;
+                        option.textContent = g.name;
+                        option.selected = g.id === image.groupId;
+                        groupSelect.appendChild(option);
+                    });
+                    
+                    // Event listener to change group
+                    groupSelect.addEventListener('change', function() {
+                        image.groupId = this.value;
+                        renderGroups(); // Re-render to move image to new group
+                    });
+                    
+                    const downloadBtn = document.createElement('button');
+                    downloadBtn.textContent = 'Download';
+                    downloadBtn.style.backgroundColor = '#2196F3';
+                    downloadBtn.style.marginRight = '5px';
+                    downloadBtn.onclick = () => downloadImage(image);
+                    
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'delete';
+                    deleteBtn.textContent = 'Delete';
+                    deleteBtn.onclick = () => deleteImage(image.id);
+                    
+                    actions.appendChild(handle);
+                    
+                    const buttonContainer = document.createElement('div');
+                    buttonContainer.style.display = 'flex';
+                    buttonContainer.style.gap = '5px';
+                    buttonContainer.appendChild(downloadBtn);
+                    buttonContainer.appendChild(deleteBtn);
+                    
+                    actions.appendChild(buttonContainer);
+                    
+                    container.appendChild(img);
+                    container.appendChild(document.createElement('br'));
+                    container.appendChild(groupSelect);
+                    container.appendChild(actions);
+                    groupGrid.appendChild(container);
+                });
+                
+                // Add group header and grid to main container
+                container.appendChild(groupHeader);
+                container.appendChild(groupGrid);
+            });
+            
+            setupDragAndDrop();
+        }
+        
+        // Setup drag and drop for reordering
+        function setupDragAndDrop() {
+            const containers = document.querySelectorAll('.image-container');
+            const imageGrids = document.querySelectorAll('.image-grid');
+            
+            containers.forEach(container => {
+                container.addEventListener('dragstart', function(e) {
+                    e.dataTransfer.setData('text/plain', container.getAttribute('data-id'));
+                    setTimeout(() => container.classList.add('dragging'), 0);
+                });
+                
+                container.addEventListener('dragend', function() {
+                    container.classList.remove('dragging');
+                });
+                
+                container.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                });
+                
+                container.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    const draggedId = e.dataTransfer.getData('text/plain');
+                    const targetId = container.getAttribute('data-id');
+                    const targetGroupId = container.closest('.image-grid').getAttribute('data-group-id');
+                    
+                    moveImage(draggedId, targetId, targetGroupId);
+                });
+            });
+            
+            // Allow dropping directly into empty groups
+            imageGrids.forEach(grid => {
+                grid.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                });
+                
+                grid.addEventListener('drop', function(e) {
+                    // Only handle if we're not dropping onto an image container
+                    if (!e.target.closest('.image-container')) {
+                        e.preventDefault();
+                        const draggedId = e.dataTransfer.getData('text/plain');
+                        const targetGroupId = grid.getAttribute('data-group-id');
+                        
+                        // Move to end of the group
+                        moveImage(draggedId, null, targetGroupId);
+                    }
+                });
+            });
+        }
+        
+        // Move and reorder images
+        function moveImage(draggedId, targetId, targetGroupId) {
+            const draggedIndex = imageData.findIndex(img => img.id === draggedId);
+            
+            if (draggedIndex === -1) return;
+            
+            const draggedItem = imageData[draggedIndex];
+            const originalGroupId = draggedItem.groupId;
+            
+            // Remove dragged item
+            imageData.splice(draggedIndex, 1);
+            
+            if (targetId) {
+                // Moving to a specific position
+                const targetIndex = imageData.findIndex(img => img.id === targetId);
+                
+                if (targetIndex !== -1) {
+                    // Update group ID if changed
+                    draggedItem.groupId = targetGroupId;
+                    
+                    // Insert at new position
+                    imageData.splice(targetIndex, 0, draggedItem);
+                }
+            } else {
+                // Moving to the end of a group
+                draggedItem.groupId = targetGroupId;
+                
+                // Find the last item in the target group
+                const lastItemIndex = imageData.map(item => item.groupId).lastIndexOf(targetGroupId);
+                
+                if (lastItemIndex === -1) {
+                    // No items in the group yet
+                    imageData.push(draggedItem);
+                } else {
+                    // Insert after the last item
+                    imageData.splice(lastItemIndex + 1, 0, draggedItem);
+                }
+            }
+            
+            // Re-render the groups
+            renderGroups();
+            
+            // Show message if group was changed
+            if (originalGroupId !== targetGroupId) {
+                const targetGroup = groupData.find(g => g.id === targetGroupId);
+                showMessage(`Image moved to group: ${targetGroup.name}`, 'success');
+            }
+        }
+        
+        // Add a new group
+        function addGroup() {
+            const nameInput = document.getElementById('new-group-name');
+            const groupName = nameInput.value.trim();
+            
+            if (!groupName) {
+                showMessage('Please enter a group name', 'error');
+                return;
+            }
+            
+            // Check if a group with this name already exists
+            if (groupData.some(g => g.name === groupName)) {
+                showMessage('A group with this name already exists', 'error');
+                return;
+            }
+            
+            // Create a unique ID
+            const uniqueId = 'group_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+            
+            // Create new group
+            const newGroup = {
+                id: uniqueId,
+                name: groupName,
+                order: groupData.length // Add at the end
+            };
+            
+            // Add to groups array
+            groupData.push(newGroup);
+            
+            // Clear input
+            nameInput.value = '';
+            
+            // Re-render
+            renderGroups();
+            updateGroupNavigationBar();
+            
+            showMessage(`Group "${groupName}" added. Don't forget to save your changes.`, 'success');
+        }
+        
+        // Delete a group
+        function deleteGroup(groupId) {
+            // Prevent deleting the default group
+            if (groupId === 'default') {
+                showMessage('Cannot delete the default group', 'error');
+                return;
+            }
+            
+            if (confirm('Are you sure you want to delete this group? All images will be moved to the Default Group.')) {
+                // Find the group to delete
+                const groupIndex = groupData.findIndex(g => g.id === groupId);
+                
+                if (groupIndex !== -1) {
+                    const groupName = groupData[groupIndex].name;
+                    
+                    // Move all images in this group to the default group
+                    imageData.forEach(image => {
+                        if (image.groupId === groupId) {
+                            image.groupId = 'default';
+                        }
+                    });
+                    
+                    // Remove the group
+                    groupData.splice(groupIndex, 1);
+                    
+                    // Re-render
+                    renderGroups();
+                    updateGroupNavigationBar();
+                    
+                    showMessage(`Group "${groupName}" deleted. All images moved to Default Group.`, 'success');
+                }
+            }
+        }
+        
+        // Handle image upload
+        function handleImageUpload(files) {
+            if (!files || files.length === 0) return;
+            
+            Array.from(files).forEach(file => {
+                const uniqueId = 'img_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+                const fileName = file.name;
+                
+                // Store the file object in a map for later download
+                if (!window.uploadedFiles) {
+                    window.uploadedFiles = new Map();
+                }
+                window.uploadedFiles.set(uniqueId, file);
+                
+                // Create a data URL for display
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    // Create new image object with data URL for preview
+                    const newImage = {
+                        id: uniqueId,
+                        name: fileName,
+                        path: 'images/' + fileName,
+                        originalName: fileName,
+                        dateAdded: new Date().toISOString(),
+                        order: getNextOrderForGroup('default'),
+                        groupId: 'default', // Assign to default group initially
+                        size: file.size,
+                        dataUrl: e.target.result // Store data URL for demo purposes
+                    };
+                    
+                    imageData.push(newImage);
+                    renderGroups();
+                    updateGroupNavigationBar();
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        // Get the next order value for a specific group
+        function getNextOrderForGroup(groupId) {
+            const groupImages = imageData.filter(img => img.groupId === groupId);
+            if (groupImages.length === 0) return 0;
+            
+            return Math.max(...groupImages.map(img => img.order)) + 1;
+        }
+        
+        // Delete an image
+        function deleteImage(id) {
+            if (confirm('Are you sure you want to delete this image?')) {
+                const index = imageData.findIndex(img => img.id === id);
+                if (index !== -1) {
+                    imageData.splice(index, 1);
+                    renderGroups();
+                    updateGroupNavigationBar();
+                    showMessage('Image deleted. Remember to save your changes.', 'success');
+                }
+            }
+        }
+        
+        // Show status message
+        function showMessage(message, type) {
+            const msgElement = document.getElementById('status-message');
+            msgElement.textContent = message;
+            msgElement.className = 'status-message ' + type;
+            
+            // Auto hide after 5 seconds
+            setTimeout(() => {
+                msgElement.textContent = '';
+                msgElement.className = 'status-message';
+            }, 5000);
+        }
+        
+        // Setup all event listeners
+        function setupEventListeners() {
+            // Save button
+            document.getElementById('save-order').addEventListener('click', saveImageData);
+            
+            // View Gallery button
+            document.getElementById('view-gallery').addEventListener('click', function() {
+                window.open('viewer.html', '_blank');
+            });
+            
+            // File upload
+            document.getElementById('file-upload').addEventListener('change', function(e) {
+                handleImageUpload(e.target.files);
+            });
+            
+            // Add group button
+            document.getElementById('add-group-btn').addEventListener('click', addGroup);
+            
+            // Drag and drop for file upload
+            const uploadContainer = document.querySelector('.upload-container');
+            
+            uploadContainer.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.style.backgroundColor = '#f0f0f0';
+            });
+            
+            uploadContainer.addEventListener('dragleave', function() {
+                this.style.backgroundColor = '';
+            });
+            
+            uploadContainer.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.style.backgroundColor = '';
+                handleImageUpload(e.dataTransfer.files);
+            });
+        }
+    </script>
+</body>
+</html>
