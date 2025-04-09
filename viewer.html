@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,38 +12,46 @@
             margin: 0 auto;
             padding: 20px;
         }
+
         .header {
             text-align: center;
             margin-bottom: 30px;
         }
+
         .gallery {
             margin-bottom: 40px;
         }
+
         .gallery-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
             gap: 20px;
         }
+
         .gallery-item {
             border-radius: 5px;
             overflow: hidden;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
             transition: transform 0.3s;
         }
+
         .gallery-item:hover {
             transform: translateY(-5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
         }
+
         .gallery-item img {
             width: 100%;
             height: 220px;
             object-fit: cover;
             display: block;
         }
+
         .gallery-item .caption {
             padding: 10px;
             background-color: #f8f8f8;
         }
+
         .lightbox {
             display: none;
             position: fixed;
@@ -50,23 +59,27 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0,0,0,0.9);
+            background-color: rgba(0, 0, 0, 0.9);
             z-index: 1000;
             justify-content: center;
             align-items: center;
         }
+
         .lightbox.active {
             display: flex;
         }
+
         .lightbox-content {
             max-width: 90%;
             max-height: 90%;
         }
+
         .lightbox-content img {
             max-width: 100%;
             max-height: 90vh;
             object-fit: contain;
         }
+
         .lightbox-controls {
             position: absolute;
             bottom: 20px;
@@ -75,8 +88,9 @@
             justify-content: center;
             gap: 20px;
         }
+
         .lightbox-controls button {
-            background-color: rgba(255,255,255,0.3);
+            background-color: rgba(255, 255, 255, 0.3);
             color: white;
             border: none;
             padding: 10px 15px;
@@ -84,9 +98,11 @@
             cursor: pointer;
             transition: background-color 0.3s;
         }
+
         .lightbox-controls button:hover {
-            background-color: rgba(255,255,255,0.5);
+            background-color: rgba(255, 255, 255, 0.5);
         }
+
         .lightbox-close {
             position: absolute;
             top: 20px;
@@ -95,21 +111,25 @@
             font-size: 30px;
             cursor: pointer;
         }
+
         .loading {
             text-align: center;
             padding: 40px;
             font-size: 18px;
             color: #666;
         }
+
         .group-header {
             margin: 30px 0 15px;
             padding-bottom: 10px;
             border-bottom: 2px solid #eee;
         }
+
         .group-header h2 {
             margin: 0;
             color: #333;
         }
+
         .group-navigation {
             position: fixed;
             right: 20px;
@@ -121,17 +141,20 @@
             max-height: 70vh;
             overflow-y: auto;
             width: 200px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
             z-index: 100;
         }
+
         .group-nav-item {
             padding: 8px;
             cursor: pointer;
             border-bottom: 1px solid #eee;
         }
+
         .group-nav-item:hover {
             background-color: #f5f5f5;
         }
+
         .group-nav-search {
             position: sticky;
             top: 0;
@@ -140,11 +163,13 @@
             border-bottom: 1px solid #ddd;
             margin-bottom: 10px;
         }
+
         .group-nav-search input {
             width: 100%;
             padding: 5px;
             box-sizing: border-box;
         }
+
         .toggle-nav-btn {
             position: fixed;
             right: 20px;
@@ -161,9 +186,10 @@
     <style>
         /* Disable selection and highlighting */
         body {
-            -webkit-touch-callout: none;  /* iOS Safari */
+            -webkit-touch-callout: none;
+            /* iOS Safari */
         }
-        
+
         .no-copy {
             -webkit-user-select: none;
             -khtml-user-select: none;
@@ -171,7 +197,19 @@
             -o-user-select: none;
             user-select: none;
         }
-        
+
+        img,
+        .no-drag {
+            
+            -webkit-user-drag: none;
+            -khtml-user-drag: none;
+            -moz-user-drag: none;
+            -o-user-drag: none;
+            -ms-user-drag: none;
+            user-drag: none;
+            /* Prevents drag events */
+        }
+
         /* Watermark overlay option */
         .watermarked::before {
             content: "© Your Gallery";
@@ -186,107 +224,94 @@
             z-index: 15;
             white-space: nowrap;
         }
-        
+
         /* CSS to break browsers' save image feature */
         .protect-image {
             background-repeat: no-repeat;
             background-position: center;
             background-size: cover;
         }
-        
+
         .protect-image img {
-            opacity: 0.01;  /* Nearly invisible */
+            opacity: 0.01;
+            /* Nearly invisible */
         }
-        
+
         /* Mosaic overlay option - visible only when downloading */
         @media print {
-            .gallery-item img, .lightbox-content img {
+
+            .gallery-item img,
+            .lightbox-content img {
                 visibility: hidden;
             }
-            
-            .gallery-item::after, .lightbox-content::after {
+
+            .gallery-item::after,
+            .lightbox-content::after {
                 content: "";
                 position: absolute;
                 top: 0;
                 left: 0;
                 width: 100%;
                 height: 100%;
-                background-image: repeating-linear-gradient(45deg, 
-                    rgba(0, 0, 0, 0.1), 
-                    rgba(0, 0, 0, 0.1) 10px, 
-                    rgba(0, 0, 0, 0.3) 10px, 
-                    rgba(0, 0, 0, 0.3) 20px);
+                background-image: repeating-linear-gradient(45deg,
+                        rgba(0, 0, 0, 0.1),
+                        rgba(0, 0, 0, 0.1) 10px,
+                        rgba(0, 0, 0, 0.3) 10px,
+                        rgba(0, 0, 0, 0.3) 20px);
                 visibility: visible;
                 z-index: 999;
             }
         }
     </style>
-    
-    <!-- JavaScript to prevent image dragging and copying -->
-    <script>
-        // Place this in your document ready function or at the end of the body
-        function addCopyProtection() {
-            // Prevent dragging of images
-            document.querySelectorAll('img').forEach(function(img) {
-                img.setAttribute('draggable', 'false');
-                
-                // Alternative: Replace img with div background
-                /*
-                const parent = img.parentNode;
-                const div = document.createElement('div');
-                div.className = 'protect-image';
-                div.style.width = img.width + 'px';
-                div.style.height = img.height + 'px';
-                div.style.backgroundImage = 'url(' + img.src + ')';
-                parent.replaceChild(div, img);
-                */
-            });
-            
-            // Monitor clipboard operations
-            document.addEventListener('copy', function(e) {
-                // Only block if trying to copy an image
-                if (window.getSelection) {
-                    const selection = window.getSelection();
-                    if (selection.rangeCount > 0) {
-                        const range = selection.getRangeAt(0);
-                        const container = range.commonAncestorContainer;
-                        if (container.nodeName === 'IMG' || 
-                            (container.parentNode && container.parentNode.nodeName === 'IMG')) {
-                            e.preventDefault();
-                        }
-                    }
-                }
-            });
-        }
-    </script>
 </head>
+
 <body>
     <div class="header">
         <h1>Image Gallery</h1>
         <div>
-            <a href="admin.html" style="color: #2196F3; text-decoration: none; display: inline-block; margin-right: 20px;">Go to Admin Panel</a>
+            <a href="admin.html"
+                style="color: #2196F3; text-decoration: none; display: inline-block; margin-right: 20px;">Go to Admin
+                Panel</a>
             <p style="display: inline-block; color: #666; margin: 0;">Images loaded from image-data.json</p>
         </div>
     </div>
-    
+
+    <div id="password-overlay"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255,255,255,0.9); z-index: 1000; justify-content: center; align-items: center;">
+        <div
+            style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.2); max-width: 400px; text-align: center;">
+            <h2>This gallery is password protected</h2>
+            <p>Please enter the password to view the images:</p>
+            <div style="margin: 20px 0;">
+                <input type="password" id="access-password" style="padding: 10px; width: 80%; margin-bottom: 10px;"
+                    placeholder="Enter password...">
+                <button id="password-submit"
+                    style="display: block; width: 80%; margin: 0 auto; padding: 10px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Enter
+                    Gallery</button>
+            </div>
+            <p id="password-error" style="color: #f44336; display: none;">Incorrect password. Please try again.</p>
+        </div>
+    </div>
+
     <button id="toggle-nav" class="toggle-nav-btn">Toggle Group Navigation</button>
-    
+
     <div id="group-navigation" class="group-navigation">
         <div class="group-nav-search">
             <input type="text" id="group-search" placeholder="Search groups...">
         </div>
         <div id="group-nav-items"></div>
     </div>
-    
+
     <div id="galleries-container">
         <div class="loading">Loading images...</div>
     </div>
-    
+
     <div id="lightbox" class="lightbox">
         <div class="lightbox-close" onclick="closeLightbox()">&times;</div>
         <div class="lightbox-content">
             <img id="lightbox-image" src="" alt="Enlarged image">
-            <div id="lightbox-caption" style="color: white; text-align: center; padding: 15px; max-width: 800px; margin: 0 auto;"></div>
+            <div id="lightbox-caption"
+                style="color: white; text-align: center; padding: 15px; max-width: 800px; margin: 0 auto;"></div>
         </div>
         <div class="lightbox-controls">
             <button onclick="prevImage()">&laquo; Previous</button>
@@ -301,40 +326,41 @@
         let allImages = []; // Flattened array of all images for lightbox
         let currentImageIndex = 0;
         const metadataFile = 'image-data.json'; // Same JSON file used by the admin interface
-        
+
         // On page load
-        document.addEventListener('DOMContentLoaded', function() {
-            loadImages();
-            
+        document.addEventListener('DOMContentLoaded', function () {
+
+            checkPasswordProtection();
+
             // Disable right-click context menu
-            document.addEventListener('contextmenu', function(e) {
+            document.addEventListener('contextmenu', function (e) {
                 if (e.target.tagName === 'IMG' || e.target.className === 'image-protector') {
                     e.preventDefault();
                     return false;
                 }
             });
-            
+
             // Disable keyboard shortcuts that could be used to save images
-            document.addEventListener('keydown', function(e) {
+            document.addEventListener('keydown', function (e) {
                 // Prevent Ctrl+S, Ctrl+U, F12, etc.
-                if ((e.ctrlKey && (e.key === 's' || e.key === 'S' || e.key === 'u' || e.key === 'U')) || 
+                if ((e.ctrlKey && (e.key === 's' || e.key === 'S' || e.key === 'u' || e.key === 'U')) ||
                     e.key === 'F12' || e.key === 'PrintScreen') {
                     e.preventDefault();
                     return false;
                 }
             });
-            
+
             // Toggle navigation visibility
-            document.getElementById('toggle-nav').addEventListener('click', function() {
+            document.getElementById('toggle-nav').addEventListener('click', function () {
                 const nav = document.getElementById('group-navigation');
                 nav.style.display = nav.style.display === 'none' ? 'block' : 'none';
             });
-            
+
             // Group search functionality
-            document.getElementById('group-search').addEventListener('input', function() {
+            document.getElementById('group-search').addEventListener('input', function () {
                 const searchTerm = this.value.toLowerCase();
                 const items = document.querySelectorAll('.group-nav-item');
-                
+
                 items.forEach(item => {
                     const groupName = item.textContent.toLowerCase();
                     if (groupName.includes(searchTerm)) {
@@ -345,7 +371,7 @@
                 });
             });
         });
-        
+
         // Load image data from JSON file
         function loadImages() {
             // Attempt to load data from the JSON file
@@ -373,19 +399,19 @@
                     } else {
                         throw new Error('Invalid JSON data format');
                     }
-                    
+
                     displayGalleries();
                     updateGroupNavigationBar();
                 })
                 .catch(error => {
                     console.error('Failed to load images from JSON:', error);
-                    
+
                     // Fallback to localStorage only if JSON fetch fails
                     const localData = localStorage.getItem(metadataFile);
                     if (localData) {
                         try {
                             const parsedData = JSON.parse(localData);
-                            
+
                             if (parsedData && parsedData.images && Array.isArray(parsedData.images)) {
                                 // New format with groups
                                 imageData = parsedData.images;
@@ -402,10 +428,11 @@
                             } else {
                                 throw new Error('Invalid localStorage data format');
                             }
-                            
+
                             displayGalleries();
                             updateGroupNavigationBar();
-                            
+                            addCopyProtection();
+
                             // Add notice about fallback
                             const notice = document.createElement('div');
                             notice.style.margin = '20px auto';
@@ -414,79 +441,79 @@
                             notice.style.border = '1px solid #ffeeba';
                             notice.style.borderRadius = '4px';
                             notice.style.maxWidth = '800px';
-                            
+
                             notice.innerHTML = `
                                 <p><strong>Note:</strong> Unable to load the image-data.json file. 
                                 Using localStorage data as a fallback.</p>
                                 <p>For production use, make sure the JSON file is accessible and 
                                 contains the correct image references.</p>
                             `;
-                            
+
                             document.body.insertBefore(notice, document.getElementById('galleries-container'));
                         } catch (error) {
                             console.error('Error parsing local data:', error);
-                            document.getElementById('galleries-container').innerHTML = 
+                            document.getElementById('galleries-container').innerHTML =
                                 '<p>Error loading images. Please check that image-data.json exists and is valid.</p>';
                         }
                     } else {
-                        document.getElementById('galleries-container').innerHTML = 
+                        document.getElementById('galleries-container').innerHTML =
                             '<p>No images found. Please make sure image-data.json exists in the same directory.</p>';
                     }
                 });
         }
-        
+
         // Update the group navigation bar
         function updateGroupNavigationBar() {
             const navContainer = document.getElementById('group-nav-items');
             navContainer.innerHTML = '';
-            
+
             // Filter out groups with no images
-            const groupsWithImages = groupData.filter(group => 
+            const groupsWithImages = groupData.filter(group =>
                 imageData.some(image => image.groupId === group.id)
             );
-            
+
             // Sort groups by order
             const sortedGroups = [...groupsWithImages].sort((a, b) => a.order - b.order);
-            
+
             sortedGroups.forEach(group => {
                 const groupItem = document.createElement('div');
                 groupItem.className = 'group-nav-item';
                 groupItem.textContent = group.name;
                 groupItem.setAttribute('data-group-id', group.id);
-                
-                groupItem.addEventListener('click', function() {
+
+                groupItem.addEventListener('click', function () {
                     const targetGroup = document.getElementById(`group-${group.id}`);
                     if (targetGroup) {
                         targetGroup.scrollIntoView({ behavior: 'smooth' });
                     }
                 });
-                
+
                 navContainer.appendChild(groupItem);
             });
         }
-        
+
         // Display galleries for each group
         function displayGalleries() {
             const container = document.getElementById('galleries-container');
             container.innerHTML = '';
             allImages = []; // Reset all images array
-            
+
             if (!imageData || imageData.length === 0) {
                 container.innerHTML = '<p>No images available</p>';
                 return;
             }
-            
+
             // Sort groups by order
             const sortedGroups = [...groupData].sort((a, b) => a.order - b.order);
-            
+
             // Create gallery for each group
             sortedGroups.forEach(group => {
                 // Filter images for this group
                 const groupImages = imageData.filter(image => image.groupId === group.id);
-                
+
                 // Skip empty groups
                 if (groupImages.length === 0) return;
-                
+
                 // Sort by order if available, otherwise by date
                 groupImages.sort((a, b) => {
                     if (a.order !== undefined && b.order !== undefined) {
@@ -494,41 +521,41 @@
                     }
                     return new Date(b.dateAdded) - new Date(a.dateAdded);
                 });
-                
+
                 // Add images to the flattened array for lightbox navigation
                 allImages = allImages.concat(groupImages);
-                
+
                 // Create group gallery container
                 const galleryContainer = document.createElement('div');
                 galleryContainer.className = 'gallery';
                 galleryContainer.id = `group-${group.id}`;
-                
+
                 // Add group header
                 const groupHeader = document.createElement('div');
                 groupHeader.className = 'group-header';
-                
+
                 const groupTitle = document.createElement('h2');
                 groupTitle.textContent = group.name;
                 groupHeader.appendChild(groupTitle);
-                
+
                 // Create gallery grid
                 const galleryGrid = document.createElement('div');
                 galleryGrid.className = 'gallery-grid';
-                
+
                 // Create gallery items
                 groupImages.forEach((image) => {
                     const item = document.createElement('div');
                     item.className = 'gallery-item';
-                    
+
                     const img = document.createElement('img');
                     img.alt = image.name || 'Image';
                     img.loading = 'lazy'; // Lazy load images
-                    
+
                     // Try to load the image from the path in the JSON
                     img.src = image.path;
-                    
+
                     // Set error handler for when image fails to load
-                    img.onerror = function() {
+                    img.onerror = function () {
                         // Try fallback to dataUrl if available (from localStorage fallback)
                         if (image.dataUrl) {
                             img.src = image.dataUrl;
@@ -539,7 +566,7 @@
                             img.style.padding = '20px';
                         }
                     };
-                    
+
                     // When clicked, find the index in the flattened array to open correctly in lightbox
                     img.addEventListener('click', () => {
                         const globalIndex = allImages.findIndex(i => i.id === image.id);
@@ -547,36 +574,36 @@
                             openLightbox(globalIndex);
                         }
                     });
-                    
+
                     const caption = document.createElement('div');
                     caption.className = 'caption';
-                    
+
                     // Fallback to path if name is not available
                     const imageName = image.name || image.path.split('/').pop() || 'Image';
                     caption.textContent = imageName;
-                    
+
                     item.appendChild(img);
                     item.appendChild(caption);
                     galleryGrid.appendChild(item);
                 });
-                
+
                 galleryContainer.appendChild(groupHeader);
                 galleryContainer.appendChild(galleryGrid);
                 container.appendChild(galleryContainer);
             });
         }
-        
+
         // Lightbox functionality
         function openLightbox(index) {
             currentImageIndex = index;
             const lightbox = document.getElementById('lightbox');
             const lightboxImage = document.getElementById('lightbox-image');
-            
+
             // Try to load the image from the path in the JSON
             lightboxImage.src = allImages[index].path;
-            
+
             // Set error handler for when image fails to load
-            lightboxImage.onerror = function() {
+            lightboxImage.onerror = function () {
                 // Try fallback to dataUrl if available (from localStorage fallback)
                 if (allImages[index].dataUrl) {
                     lightboxImage.src = allImages[index].dataUrl;
@@ -587,46 +614,46 @@
                     lightboxImage.style.padding = '40px';
                 }
             };
-            
-            
+
+
             // Update the caption if description exists
             const lightboxCaption = document.getElementById('lightbox-caption');
             if (lightboxCaption) {
                 const image = allImages[index];
                 let captionText = image.name || image.path.split('/').pop() || 'Image';
-                
+
                 if (image.description && image.description.trim() !== '') {
                     captionText += `<br><span class="description">${image.description}</span>`;
                 }
-                
+
                 lightboxCaption.innerHTML = captionText;
             }
-            
+
             lightbox.classList.add('active');
-            
+
             // Disable scrolling on body
             document.body.style.overflow = 'hidden';
         }
-        
+
         function closeLightbox() {
             const lightbox = document.getElementById('lightbox');
             lightbox.classList.remove('active');
-            
+
             // Re-enable scrolling
             document.body.style.overflow = '';
         }
-        
+
         function nextImage() {
             currentImageIndex = (currentImageIndex + 1) % allImages.length;
             const lightboxImage = document.getElementById('lightbox-image');
-            
+
             // Try to load the image from the path in the JSON
             lightboxImage.src = allImages[currentImageIndex].path;
             lightboxImage.style.backgroundColor = '';
             lightboxImage.style.padding = '';
-            
+
             // Set error handler for when image fails to load
-            lightboxImage.onerror = function() {
+            lightboxImage.onerror = function () {
                 // Try fallback to dataUrl if available (from localStorage fallback)
                 if (allImages[currentImageIndex].dataUrl) {
                     lightboxImage.src = allImages[currentImageIndex].dataUrl;
@@ -637,32 +664,32 @@
                     lightboxImage.style.padding = '40px';
                 }
             };
-            
+
             // Update caption
             const lightboxCaption = document.getElementById('lightbox-caption');
             if (lightboxCaption) {
                 const image = allImages[currentImageIndex];
                 let captionText = image.name || image.path.split('/').pop() || 'Image';
-                
+
                 if (image.description && image.description.trim() !== '') {
                     captionText += `<br><span class="description">${image.description}</span>`;
                 }
-                
+
                 lightboxCaption.innerHTML = captionText;
             }
         }
-        
+
         function prevImage() {
             currentImageIndex = (currentImageIndex - 1 + allImages.length) % allImages.length;
             const lightboxImage = document.getElementById('lightbox-image');
-            
+
             // Try to load the image from the path in the JSON
             lightboxImage.src = allImages[currentImageIndex].path;
             lightboxImage.style.backgroundColor = '';
             lightboxImage.style.padding = '';
-            
+
             // Set error handler for when image fails to load
-            lightboxImage.onerror = function() {
+            lightboxImage.onerror = function () {
                 // Try fallback to dataUrl if available (from localStorage fallback)
                 if (allImages[currentImageIndex].dataUrl) {
                     lightboxImage.src = allImages[currentImageIndex].dataUrl;
@@ -673,25 +700,101 @@
                     lightboxImage.style.padding = '40px';
                 }
             };
-            
+
             // Update caption
             const lightboxCaption = document.getElementById('lightbox-caption');
             if (lightboxCaption) {
                 const image = allImages[currentImageIndex];
                 let captionText = image.name || image.path.split('/').pop() || 'Image';
-                
+
                 if (image.description && image.description.trim() !== '') {
                     captionText += `<br><span class="description">${image.description}</span>`;
                 }
-                
+
                 lightboxCaption.innerHTML = captionText;
             }
         }
-        
+        // Check if gallery is password protected
+        function checkPasswordProtection() {
+            // First try to load from the JSON file to check for password protection
+            fetch('image-data.json')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('No images found or JSON file not accessible');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data && data.groups) {
+                        const passwordSettings = data.groups.find(g => g.id === 'password-settings');
+                        if (passwordSettings && passwordSettings.password) {
+                            // Gallery is password protected, show the overlay
+                            document.getElementById('password-overlay').style.display = 'flex';
+                            setupPasswordSubmit(passwordSettings.password);
+                        } else {
+                            // No password protection, proceed to load images
+                            loadImages();
+                        }
+                    } else {
+                        // No groups or password settings, proceed to load images
+                        loadImages();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking password protection:', error);
+                    // If error, try localStorage
+                    if (localStorage.getItem('gallery-password-enabled') === 'true') {
+                        document.getElementById('password-overlay').style.display = 'flex';
+                        const storedPassword = localStorage.getItem('gallery-password');
+                        setupPasswordSubmit(storedPassword);
+                    } else {
+                        // No password protection, proceed to load images
+                        loadImages();
+                    }
+                });
+        }
+
+        // Setup password submission
+        function setupPasswordSubmit(correctPassword) {
+            const submitButton = document.getElementById('password-submit');
+            const passwordInput = document.getElementById('access-password');
+            const errorMessage = document.getElementById('password-error');
+
+            // Handle enter key press
+            passwordInput.addEventListener('keyup', function (event) {
+                if (event.key === 'Enter') {
+                    submitPassword(correctPassword);
+                }
+            });
+
+            // Handle button click
+            submitButton.addEventListener('click', function () {
+                submitPassword(correctPassword);
+            });
+        }
+
+        // Submit and validate password
+        function submitPassword(correctPassword) {
+            const passwordInput = document.getElementById('access-password');
+            const errorMessage = document.getElementById('password-error');
+            const enteredPassword = passwordInput.value.trim();
+
+            if (enteredPassword === correctPassword) {
+                // Password correct - hide overlay and load gallery
+                document.getElementById('password-overlay').style.display = 'none';
+                loadImages();
+            } else {
+                // Password incorrect - show error
+                errorMessage.style.display = 'block';
+                passwordInput.value = '';
+                passwordInput.focus();
+            }
+        }
+
         // Keyboard navigation for lightbox
-        document.addEventListener('keydown', function(e) {
+        document.addEventListener('keydown', function (e) {
             if (!document.getElementById('lightbox').classList.contains('active')) return;
-            
+
             if (e.key === 'Escape') {
                 closeLightbox();
             } else if (e.key === 'ArrowRight') {
@@ -700,6 +803,8 @@
                 prevImage();
             }
         });
+        
     </script>
 </body>
+
 </html>
